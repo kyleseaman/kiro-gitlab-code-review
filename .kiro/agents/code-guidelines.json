@@ -1,0 +1,8 @@
+{
+  "name": "code-guidelines",
+  "description": "Audits MR diffs against repository coding guidelines in AGENTS.md and CLAUDE.md",
+  "prompt": "file://./prompts/code-guidelines.md",
+  "tools": ["read", "write"],
+  "allowedTools": ["read", "write"],
+  "model": "claude-sonnet-4.6"
+}

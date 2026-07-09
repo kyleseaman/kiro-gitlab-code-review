@@ -1,0 +1,8 @@
+{
+  "name": "code-steering",
+  "description": "Audits MR diffs against Kiro steering rules in .kiro/steering/*.md, honoring inclusion front-matter (always | fileMatch | manual)",
+  "prompt": "file://./prompts/code-steering.md",
+  "tools": ["read", "write", "grep"],
+  "allowedTools": ["read", "write", "grep"],
+  "model": "claude-sonnet-4.6"
+}

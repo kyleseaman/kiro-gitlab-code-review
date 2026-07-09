@@ -1,0 +1,8 @@
+{
+  "name": "code-reviewer",
+  "description": "Coordinates code review by spawning 4 specialized subagents (guidelines, steering, bugs, history), filtering by confidence, and performing design review",
+  "prompt": "file://./prompts/code-reviewer.md",
+  "tools": ["read", "write", "grep", "subagent"],
+  "allowedTools": ["read", "write", "grep", "subagent"],
+  "model": "claude-opus-4.6"
+}

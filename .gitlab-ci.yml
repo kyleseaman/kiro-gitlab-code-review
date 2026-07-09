@@ -1,0 +1,92 @@
+# ABOUTME: GitLab CI pipeline for automated AI code review on merge requests.
+# ABOUTME: Spawns Kiro CLI agents to review diffs and post inline findings via the GitLab MR API.
+
+stages:
+  - review
+
+kiro-code-review:
+  stage: review
+  image: ubuntu:24.04
+  # Full history so the git-history agent and target-branch diff work.
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    # Run on merge request events, but skip Draft MRs.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE =~ /^Draft:/'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # Allow manual re-runs of the pipeline on an MR (Pipelines → Run pipeline).
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_MERGE_REQUEST_IID'
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq curl jq git ca-certificates bash >/dev/null
+    - curl -fsSL https://cli.kiro.dev/install | bash
+    - export PATH="$HOME/.local/bin:$HOME/.kiro/bin:$PATH"
+    - chmod +x .gitlab/scripts/*.sh
+  script:
+    # 1. Generate the annotated diff (source vs. target branch merge base).
+    - |
+      git fetch --no-tags --quiet origin \
+        "+refs/heads/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}:refs/remotes/origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}"
+      git diff "origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}...HEAD" > /tmp/mr-raw.diff
+      bash .gitlab/scripts/annotate-diff.sh /tmp/mr-raw.diff > /tmp/mr.diff
+
+    # 2. Gather flat repo guidelines (AGENTS.md, CLAUDE.md).
+    - |
+      > /tmp/repo-guidelines.md
+      for f in AGENTS.md CLAUDE.md; do
+        if [ -f "$f" ]; then
+          echo "--- ${f} ---" >> /tmp/repo-guidelines.md
+          cat "$f" >> /tmp/repo-guidelines.md
+          echo "" >> /tmp/repo-guidelines.md
+        fi
+      done
+      if [ ! -s /tmp/repo-guidelines.md ]; then
+        echo "No AGENTS.md or CLAUDE.md found." > /tmp/repo-guidelines.md
+      fi
+
+    # 3. Gather Kiro steering rules separately, preserving inclusion front-matter.
+    - |
+      > /tmp/kiro-steering.md
+      if ls .kiro/steering/*.md >/dev/null 2>&1; then
+        for f in .kiro/steering/*.md; do
+          echo "--- ${f} ---" >> /tmp/kiro-steering.md
+          cat "$f" >> /tmp/kiro-steering.md
+          echo "" >> /tmp/kiro-steering.md
+        done
+      else
+        echo "No Kiro steering files found under .kiro/steering/." > /tmp/kiro-steering.md
+      fi
+
+    # 4. Fetch linked issue context from the MR description (Closes #N, Fixes #N, ...).
+    - |
+      MR_DESC=$(curl -sS -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}" \
+        | jq -r '.description // ""')
+      ISSUE_NUMS=$(printf '%s' "$MR_DESC" \
+        | grep -oiP '(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#\K[0-9]+' | sort -u || true)
+      if [ -n "$ISSUE_NUMS" ]; then
+        echo "Linked issues found: $ISSUE_NUMS"
+        > /tmp/issue-context.md
+        for NUM in $ISSUE_NUMS; do
+          echo "--- Issue #${NUM} ---" >> /tmp/issue-context.md
+          curl -sS -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+            "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/issues/${NUM}" \
+            | jq -r '"# \(.title)\n\(.description // "")"' >> /tmp/issue-context.md 2>/dev/null \
+            || echo "(Could not fetch issue #${NUM})" >> /tmp/issue-context.md
+          echo "" >> /tmp/issue-context.md
+        done
+      else
+        echo "No linked issues found"
+        echo "No linked issue context available." > /tmp/issue-context.md
+      fi
+
+    # 5. Run the Kiro coordinator agent (spawns guidelines, steering, bugs, history).
+    - |
+      kiro-cli chat \
+        --no-interactive \
+        --agent code-reviewer \
+        --trust-tools=read,write,grep,shell,subagent \
+        "Review the code diff at /tmp/mr.diff. The linked issue context is at /tmp/issue-context.md. Flat repo guidelines (AGENTS.md, CLAUDE.md) are at /tmp/repo-guidelines.md, and Kiro steering rules are at /tmp/kiro-steering.md. The project is ${CI_PROJECT_PATH} on branch ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}. Spawn the 4 review subagents in parallel (guidelines, steering, bugs, history), filter by confidence, merge findings, and write the result to /tmp/kiro-review.json"
+
+    # 6. Post the review to the MR.
+    - bash .gitlab/scripts/post-review.sh

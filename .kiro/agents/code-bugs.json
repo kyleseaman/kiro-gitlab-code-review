@@ -1,0 +1,8 @@
+{
+  "name": "code-bugs",
+  "description": "Scans MR diffs for obvious bugs, error handling issues, and test coverage gaps",
+  "prompt": "file://./prompts/code-bugs.md",
+  "tools": ["read", "write", "grep"],
+  "allowedTools": ["read", "write", "grep"],
+  "model": "claude-sonnet-4.6"
+}

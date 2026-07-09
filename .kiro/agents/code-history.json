@@ -1,0 +1,8 @@
+{
+  "name": "code-history",
+  "description": "Analyzes git blame/log history for context-based issues in MR changes",
+  "prompt": "file://./prompts/code-history.md",
+  "tools": ["read", "write", "shell"],
+  "allowedTools": ["read", "write", "shell"],
+  "model": "claude-sonnet-4.6"
+}
