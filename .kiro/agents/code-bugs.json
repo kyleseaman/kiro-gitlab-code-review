@@ -4,5 +4,5 @@
   "prompt": "file://./prompts/code-bugs.md",
   "tools": ["read", "write", "grep"],
   "allowedTools": ["read", "write", "grep"],
-  "model": "claude-sonnet-4.6"
+  "model": "claude-sonnet-5"
 }

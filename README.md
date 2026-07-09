@@ -15,7 +15,7 @@ Adapted from the GitHub Actions version of this tool. Two things are different h
    - `AGENTS.md` / `CLAUDE.md` → flat guidelines
    - `.kiro/steering/*.md` → Kiro steering rules (front-matter preserved)
 4. Linked issue context is fetched from the MR description (parses `Closes #N`, `Fixes #N`, `Resolves #N`).
-5. The coordinator agent (Opus 4.6) spawns **4 subagents in parallel** (Sonnet 4.6):
+5. The coordinator agent (Opus 4.6) spawns **4 subagents in parallel** (Sonnet 5):
    - **Guidelines** — compliance against `AGENTS.md` / `CLAUDE.md`
    - **Steering** — adherence to `.kiro/steering/*.md`, respecting `inclusion: always | fileMatch | manual`
    - **Bug Detection** — scans for bugs, error handling issues, and test coverage gaps
@@ -29,10 +29,10 @@ Adapted from the GitHub Actions version of this tool. Two things are different h
 | Agent | Model | Role |
 |---|---|---|
 | `code-reviewer` | Opus 4.6 | Coordinator — spawns subagents, filters, design review, merges |
-| `code-guidelines` | Sonnet 4.6 | `AGENTS.md` / `CLAUDE.md` compliance |
-| `code-steering` | Sonnet 4.6 | `.kiro/steering/*.md` adherence (inclusion-aware) |
-| `code-bugs` | Sonnet 4.6 | Bug detection in changed lines |
-| `code-history` | Sonnet 4.6 | Git blame/log context analysis |
+| `code-guidelines` | Sonnet 5 | `AGENTS.md` / `CLAUDE.md` compliance |
+| `code-steering` | Sonnet 5 | `.kiro/steering/*.md` adherence (inclusion-aware) |
+| `code-bugs` | Sonnet 5 | Bug detection in changed lines |
+| `code-history` | Sonnet 5 | Git blame/log context analysis |
 
 ### The steering agent and `inclusion` front-matter
 
@@ -60,10 +60,10 @@ your-repo/
 └── .kiro/
     └── agents/
         ├── code-reviewer.json          # Coordinator (Opus 4.6)
-        ├── code-guidelines.json        # AGENTS.md/CLAUDE.md compliance (Sonnet 4.6)
-        ├── code-steering.json          # Kiro steering adherence (Sonnet 4.6)
-        ├── code-bugs.json              # Bug detection (Sonnet 4.6)
-        ├── code-history.json           # Git history analysis (Sonnet 4.6)
+        ├── code-guidelines.json        # AGENTS.md/CLAUDE.md compliance (Sonnet 5)
+        ├── code-steering.json          # Kiro steering adherence (Sonnet 5)
+        ├── code-bugs.json              # Bug detection (Sonnet 5)
+        ├── code-history.json           # Git history analysis (Sonnet 5)
         └── prompts/
             ├── code-reviewer.md
             ├── code-guidelines.md
@@ -135,10 +135,10 @@ The threshold is **80**. Drop everything below it.
 Edit the `model` field in any agent's `.json` config:
 
 ```json
-{ "model": "claude-sonnet-4.6" }
+{ "model": "claude-sonnet-5" }
 ```
 
-The coordinator uses `claude-opus-4.6`; subagents use `claude-sonnet-4.6`.
+The coordinator uses `claude-opus-4.6`; subagents use `claude-sonnet-5`.
 
 ### When the review runs
 
@@ -159,10 +159,10 @@ Trigger a new pipeline on the MR: **Pipelines → Run pipeline**, or push a new 
 │  4. Fetch linked issue context (GitLab issues API)    │
 │                                                       │
 │  5. kiro-cli (coordinator — Opus 4.6)                 │
-│     ├── spawns code-guidelines (Sonnet 4.6)          │
-│     ├── spawns code-steering   (Sonnet 4.6)          │
-│     ├── spawns code-bugs       (Sonnet 4.6)          │
-│     ├── spawns code-history    (Sonnet 4.6)          │
+│     ├── spawns code-guidelines (Sonnet 5)          │
+│     ├── spawns code-steering   (Sonnet 5)          │
+│     ├── spawns code-bugs       (Sonnet 5)          │
+│     ├── spawns code-history    (Sonnet 5)          │
 │     ├── filters by confidence (≥ 80)                  │
 │     ├── performs design review                        │
 │     └── merges → /tmp/kiro-review.json                │

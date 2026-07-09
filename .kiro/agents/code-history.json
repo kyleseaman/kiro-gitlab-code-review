@@ -4,5 +4,5 @@
   "prompt": "file://./prompts/code-history.md",
   "tools": ["read", "write", "shell"],
   "allowedTools": ["read", "write", "shell"],
-  "model": "claude-sonnet-4.6"
+  "model": "claude-sonnet-5"
 }
