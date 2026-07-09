@@ -142,6 +142,16 @@ if [[ "$FINDING_COUNT" -gt 0 ]]; then
       RAW_BODY=$(echo "$FINDING" | jq -r '.body')
       COMMENT_BODY="**[${SEVERITY}]** ${RAW_BODY} _(confidence: ${CONFIDENCE})_"
 
+      # A positioned discussion needs an integer line. Findings without one
+      # (e.g. file-level) can't anchor — route them to the body-note fallback
+      # instead of letting jq --argjson abort the job under `set -e`.
+      if ! [[ "$LINE_VAL" =~ ^[0-9]+$ ]]; then
+        echo "::warning:: Non-numeric line for ${PATH_VAL} (line='${LINE_VAL}') — routing to body note"
+        FAILED_FINDINGS=$(echo "$FAILED_FINDINGS" | jq \
+          --arg line "- **${PATH_VAL}** ${COMMENT_BODY}" '. + [$line]')
+        continue
+      fi
+
       PAYLOAD=$(jq -n \
         --arg body "$COMMENT_BODY" \
         --arg base "$BASE_SHA" \

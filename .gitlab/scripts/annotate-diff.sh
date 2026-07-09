@@ -11,7 +11,6 @@ set -euo pipefail
 #   +[21]  const x = 1;
 
 INPUT="${1:-/dev/stdin}"
-FILE=""
 LINE=1
 
 while IFS= read -r line; do
@@ -20,7 +19,6 @@ while IFS= read -r line; do
       printf "%s\n" "$line"
       ;;
     "+++ "*)
-      FILE="${line#+++ b/}"
       printf "%s\n" "$line"
       ;;
     "@@"*)
