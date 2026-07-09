@@ -10,6 +10,12 @@ kiro-code-review:
   # Full history so the git-history agent and target-branch diff work.
   variables:
     GIT_DEPTH: "0"
+    # Merge gate. "false" (default) = advisory: post findings, never fail the job.
+    # "true" = block: a "needs rework" verdict fails the pipeline, which blocks the
+    # merge when Settings → Merge requests → "Pipelines must succeed" is enabled.
+    # Override here, or set a project CI/CD variable of the same name (which wins).
+    # Per-MR escape hatch: add the `skip-kiro-review` label to bypass the gate.
+    KIRO_REVIEW_BLOCK: "false"
   rules:
     # Run on merge request events, but skip Draft MRs.
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE =~ /^Draft:/'

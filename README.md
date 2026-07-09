@@ -82,6 +82,7 @@ Go to **Settings → CI/CD → Variables** in your GitLab project and add:
 |---|---|---|
 | `KIRO_API_KEY` | Your Kiro API key ([generate one](https://kiro.dev/docs/cli/authentication#authenticate-with-an-api-key-headless-mode)) | Mark as **Masked**. Requires a Kiro Pro, Pro+, or Power subscription. |
 | `GITLAB_TOKEN` | A token with `api` scope | Used to read the MR/issues and post discussions. See below. |
+| `KIRO_REVIEW_BLOCK` | `true` / `false` (optional) | Default `false` (advisory). Set `true` to make a `needs rework` verdict block the merge. See [Merge gate](#merge-gate-block-or-advisory). |
 
 **`GITLAB_TOKEN`** should be a [Project Access Token](https://docs.gitlab.com/ee/user/project/settings/project_access_tokens.html) (role: **Developer** or higher, scope: **api**) or a Group/Personal Access Token with `api` scope. Mark it **Masked**. The built-in `CI_JOB_TOKEN` is intentionally not used because it cannot reliably create positioned MR discussions.
 
@@ -143,6 +144,23 @@ The coordinator uses `claude-opus-4.6`; subagents use `claude-sonnet-5`.
 ### When the review runs
 
 By default the review runs on **every non-draft MR event** (open and update). To restrict it to only when the MR opens, or to skip doc-only changes, adjust the `rules:` block in `.gitlab-ci.yml`. Draft MRs (title starting with `Draft:`) are always skipped.
+
+### Merge gate: block or advisory
+
+The review is **advisory by default** — it posts findings and a verdict but never fails the pipeline. Flip it into a blocking gate with the `KIRO_REVIEW_BLOCK` flag:
+
+| `KIRO_REVIEW_BLOCK` | Behavior |
+|---|---|
+| `false` (default) | Advisory. Post findings and verdict; pipeline always passes. |
+| `true` | Blocking. A `needs rework` verdict fails the job. |
+
+Set it in `.gitlab-ci.yml` under the job's `variables:`, or as a project CI/CD variable (which takes precedence). To make a failed review actually stop the merge, also enable **Settings → Merge requests → "Pipelines must succeed"** — otherwise the failing job is visible but the merge button stays active.
+
+The gate fires on the coordinator's `needs rework` verdict, which its rubric reserves for "high issues, wrong approach, or fundamentally incomplete." `merge` and `merge with fixes` never block.
+
+**Per-MR override.** Add the `skip-kiro-review` label to a merge request to bypass the gate for that MR — the review still runs and posts findings, but a `needs rework` verdict won't fail the pipeline. Useful for urgent hotfixes or overriding a false block.
+
+> **Note on LLM gates:** verdicts are non-deterministic — the same MR can flip between `merge with fixes` and `needs rework` across runs — and the job depends on the Kiro API being reachable. Consider running advisory for a week before enabling blocking, and rely on the label override as an escape hatch.
 
 ### Re-running a review
 
