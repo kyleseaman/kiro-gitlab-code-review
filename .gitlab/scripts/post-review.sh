@@ -14,10 +14,13 @@ MR_API="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQ
 AUTH_HEADER="PRIVATE-TOKEN: ${GITLAB_TOKEN}"
 
 # Merge-gate controls.
-#   KIRO_REVIEW_BLOCK  — when truthy, a "needs rework" verdict fails this job so the MR
-#                        is blocked (requires "Pipelines must succeed" in project settings).
-#                        Default false → advisory only (post findings, never fail).
+#   KIRO_REVIEW_BLOCK  — when truthy, a "needs rework" verdict (or a missing review
+#                        file — fail-closed) fails this job so the MR is blocked
+#                        (requires "Pipelines must succeed" in project settings).
+#                        Default false → advisory only.
 #   Per-MR override     — add the `skip-kiro-review` label to bypass the gate on one MR.
+# Gate status is folded into the single summary note, not posted as a separate
+# comment, so re-runs don't clutter the MR conversation.
 KIRO_REVIEW_BLOCK="${KIRO_REVIEW_BLOCK:-false}"
 BYPASS_LABEL="skip-kiro-review"
 
@@ -38,41 +41,28 @@ post_note() {
         --data @- > /dev/null
 }
 
-# Evaluate the merge gate and exit accordingly. Every exit path calls this so the
-# gate is enforced consistently whether or not inline comments were posted.
-#   $1 — verdict string (may be empty when there is no review file)
-enforce_gate() {
-  local verdict="$1"
-
-  if ! is_truthy "$KIRO_REVIEW_BLOCK"; then
-    echo "Merge gate disabled (advisory only); verdict '${verdict:-none}'."
-    exit 0
-  fi
-
-  if [[ "$verdict" != "needs rework" ]]; then
-    echo "Merge gate enabled; verdict '${verdict:-none}' is not blocking."
-    exit 0
-  fi
-
-  # Blocking verdict — honor the per-MR bypass label before failing.
+has_bypass_label() {
   local labels
   labels=$(curl -sS -H "${AUTH_HEADER}" "${MR_API}" | jq -r '.labels[]?' 2>/dev/null || true)
-  if printf '%s\n' "$labels" | grep -qx "$BYPASS_LABEL"; then
-    post_note "⚠️ **Kiro Code Review** returned \`needs rework\`, but the \`${BYPASS_LABEL}\` label is set — merge gate bypassed."
-    echo "Verdict 'needs rework' bypassed by '${BYPASS_LABEL}' label. Not blocking."
-    exit 0
-  fi
-
-  post_note "🚫 **Kiro Code Review merge gate** — verdict is \`needs rework\`, so this pipeline is failing to block the merge. Address the findings above and re-run, or add the \`${BYPASS_LABEL}\` label to override."
-  echo "Merge gate: verdict 'needs rework' with blocking enabled → failing job." >&2
-  exit 1
+  printf '%s\n' "$labels" | grep -qx "$BYPASS_LABEL"
 }
 
-# --- No findings file: post a clean review, then evaluate the gate -------------
+# --- No review file: the coordinator always writes one on a compliant run, so a
+# --- missing file means the review malfunctioned. Never claim "no issues found".
+# --- Advisory mode: report honestly, pass. Blocking mode: fail closed.
 if [[ ! -f "$REVIEW_FILE" ]]; then
-  echo "No review file found — posting clean summary"
-  post_note "✅ **Kiro Code Review** — No issues found."
-  enforce_gate ""
+  echo "No review file found — review did not complete."
+  if is_truthy "$KIRO_REVIEW_BLOCK"; then
+    if has_bypass_label; then
+      post_note "⚠️ **Kiro Code Review did not complete** — no review output was produced (check the pipeline logs). The \`${BYPASS_LABEL}\` label is set, so this check will not fail."
+      exit 0
+    fi
+    post_note "🚫 **Kiro Code Review did not complete** — no review output was produced, so this check is failing closed (blocking mode). Check the pipeline logs and re-run, or add the \`${BYPASS_LABEL}\` label to override."
+    echo "Merge gate: missing review output with blocking enabled → failing job (fail-closed)." >&2
+    exit 1
+  fi
+  post_note "⚠️ **Kiro Code Review did not complete** — no review output was produced. Check the pipeline logs and re-run."
+  exit 0
 fi
 
 # --- Validate JSON -------------------------------------------------------------
@@ -86,6 +76,20 @@ fi
 
 FINDING_COUNT=$(jq '.comments // [] | length' "$REVIEW_FILE")
 VERDICT=$(jq -r '.verdict // "" | ascii_downcase' "$REVIEW_FILE")
+
+# --- Merge gate: decide state up front. BLOCKING drives the exit code at the end;
+# --- GATE_SUFFIX is appended to the single summary note.
+BLOCKING=false
+GATE_SUFFIX=""
+if is_truthy "$KIRO_REVIEW_BLOCK" && [[ "$VERDICT" == "needs rework" ]]; then
+  if has_bypass_label; then
+    GATE_SUFFIX=$'\n\n> ⚠️ **Merge gate bypassed** — verdict is `needs rework`, but the `'"$BYPASS_LABEL"$'` label is set, so this check will not fail.'
+    echo "Verdict 'needs rework' bypassed by '${BYPASS_LABEL}' label. Not blocking."
+  else
+    BLOCKING=true
+    GATE_SUFFIX=$'\n\n> 🚫 **Merge gate** — verdict is `needs rework`, so this pipeline is failing to block the merge. Address the findings above and re-run, or add the `'"$BYPASS_LABEL"$'` label to override.'
+  fi
+fi
 
 # --- Build review body (summary + strengths + verdict) -------------------------
 BODY=$(jq -r '
@@ -105,6 +109,9 @@ BODY=$(jq -r '
   (if .verdict_reason and .verdict_reason != "" then " — " + .verdict_reason else "" end) +
   "\n\n---\n*Found \(.comments // [] | length) finding(s). Powered by [Kiro CLI](https://kiro.dev/docs/cli/headless/).* · To re-run, trigger a new pipeline on this MR (Pipelines → Run pipeline)."
 ' "$REVIEW_FILE")
+
+# Fold the merge-gate status into the same summary note.
+BODY="${BODY}${GATE_SUFFIX}"
 
 # --- Post the summary note -----------------------------------------------------
 post_note "$BODY"
@@ -201,5 +208,9 @@ else
   echo "No inline findings to post."
 fi
 
-# --- Merge gate ----------------------------------------------------------------
-enforce_gate "$VERDICT"
+# --- Merge gate: exit code only (status already in the summary note) -----------
+if [[ "$BLOCKING" == "true" ]]; then
+  echo "Merge gate: verdict 'needs rework' with blocking enabled → failing job." >&2
+  exit 1
+fi
+exit 0
