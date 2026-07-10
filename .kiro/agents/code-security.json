@@ -1,0 +1,8 @@
+{
+  "name": "code-security",
+  "description": "Reviews MR diffs for security issues: injection, authz/authn gaps, secret handling, SSRF, unsafe shell/eval, and missing input validation",
+  "prompt": "file://./prompts/code-security.md",
+  "tools": ["read", "write", "grep"],
+  "allowedTools": ["read", "write", "grep"],
+  "model": "claude-sonnet-5"
+}

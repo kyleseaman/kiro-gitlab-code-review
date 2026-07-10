@@ -1,6 +1,6 @@
 {
   "name": "code-reviewer",
-  "description": "Coordinates code review by spawning 4 specialized subagents (guidelines, steering, bugs, history), filtering by confidence, and performing design review",
+  "description": "Coordinates code review by spawning 5 specialized subagents (guidelines, steering, security, bugs, history), filtering by confidence, and performing design review",
   "prompt": "file://./prompts/code-reviewer.md",
   "tools": ["read", "write", "grep", "subagent"],
   "allowedTools": ["read", "write", "grep", "subagent"],

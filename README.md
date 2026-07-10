@@ -15,9 +15,10 @@ Adapted from the GitHub Actions version of this tool. Two things are different h
    - `AGENTS.md` / `CLAUDE.md` → flat guidelines
    - `.kiro/steering/*.md` → Kiro steering rules (front-matter preserved)
 4. Linked issue context is fetched from the MR description (parses `Closes #N`, `Fixes #N`, `Resolves #N`).
-5. The coordinator agent (Opus 4.6) spawns **4 subagents in parallel** (Sonnet 5):
+5. The coordinator agent (Opus 4.6) spawns **5 subagents in parallel** (Sonnet 5):
    - **Guidelines** — compliance against `AGENTS.md` / `CLAUDE.md`
    - **Steering** — adherence to `.kiro/steering/*.md`, respecting `inclusion: always | fileMatch | manual`
+   - **Security** — injection, authz/authn gaps, secret handling, SSRF, unsafe shell, input validation
    - **Bug Detection** — scans for bugs, error handling issues, and test coverage gaps
    - **Git History** — analyzes blame/log for context (fragile code, reverted fixes, churn)
 6. The coordinator performs its own **design review** — completeness, abstraction layer, approach.
@@ -31,6 +32,7 @@ Adapted from the GitHub Actions version of this tool. Two things are different h
 | `code-reviewer` | Opus 4.6 | Coordinator — spawns subagents, filters, design review, merges |
 | `code-guidelines` | Sonnet 5 | `AGENTS.md` / `CLAUDE.md` compliance |
 | `code-steering` | Sonnet 5 | `.kiro/steering/*.md` adherence (inclusion-aware) |
+| `code-security` | Sonnet 5 | Security review — injection, authz/authn, secrets, SSRF, unsafe shell, input validation |
 | `code-bugs` | Sonnet 5 | Bug detection in changed lines |
 | `code-history` | Sonnet 5 | Git blame/log context analysis |
 
@@ -62,12 +64,14 @@ your-repo/
         ├── code-reviewer.json          # Coordinator (Opus 4.6)
         ├── code-guidelines.json        # AGENTS.md/CLAUDE.md compliance (Sonnet 5)
         ├── code-steering.json          # Kiro steering adherence (Sonnet 5)
+        ├── code-security.json          # Security review (Sonnet 5)
         ├── code-bugs.json              # Bug detection (Sonnet 5)
         ├── code-history.json           # Git history analysis (Sonnet 5)
         └── prompts/
             ├── code-reviewer.md
             ├── code-guidelines.md
             ├── code-steering.md
+            ├── code-security.md
             ├── code-bugs.md
             └── code-history.md
 ```
@@ -120,6 +124,7 @@ Each agent has its own prompt file under `.kiro/agents/prompts/`:
 - `code-bugs.md` — bug detection rules and focus areas
 - `code-guidelines.md` — AGENTS.md/CLAUDE.md compliance rules
 - `code-steering.md` — Kiro steering adherence + inclusion semantics
+- `code-security.md` — security review focus areas
 - `code-history.md` — git history analysis rules
 - `code-reviewer.md` — coordinator prompt (spawning, filtering, design review)
 
@@ -179,6 +184,7 @@ Trigger a new pipeline on the MR: **Pipelines → Run pipeline**, or push a new 
 │  5. kiro-cli (coordinator — Opus 4.6)                 │
 │     ├── spawns code-guidelines (Sonnet 5)          │
 │     ├── spawns code-steering   (Sonnet 5)          │
+│     ├── spawns code-security   (Sonnet 5)          │
 │     ├── spawns code-bugs       (Sonnet 5)          │
 │     ├── spawns code-history    (Sonnet 5)          │
 │     ├── filters by confidence (≥ 80)                  │
