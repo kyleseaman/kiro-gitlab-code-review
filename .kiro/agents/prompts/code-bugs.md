@@ -18,6 +18,7 @@ You scan a merge request diff for obvious bugs in the changed code only.
 - Swallowed exceptions, missing error checks, unhandled promise rejections
 - MR modifies behavior but adds no tests; new exports without test coverage
 - Missing input validation / unchecked contracts — unvalidated inputs, missing guards on required env vars or params (e.g. an empty required var reaching a sensitive call), unchecked error returns
+- Performance regressions with a concrete failure mode — N+1 calls on a hot path, unbounded memory or collection growth, quadratic behavior on user-scaled input. No speculative micro-optimizations.
 
 ## Confidence Scoring
 
@@ -59,5 +60,5 @@ Score each finding 0-100:
 - Issues that linters, formatters, or type checkers will catch — those tools run separately
 - Pedantic nitpicks — variable naming preferences, import ordering, comment style
 - General quality suggestions not tied to a concrete bug — "this could be cleaner" is not a finding
-- Test files — do not review test code unless the test itself has a bug that makes it pass incorrectly
+- Test files — deep test-adequacy review (tautological tests, uncovered new behavior) is the tests agent's domain; only flag a test whose own logic makes it pass incorrectly
 - Generated files, lock files, or vendored dependencies

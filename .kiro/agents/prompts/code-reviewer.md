@@ -8,13 +8,14 @@ You coordinate a code review by spawning specialized subagents in parallel, then
 
 2. Read `/tmp/mr.diff` to get a high-level understanding of what files are changed and the scope of the MR.
 
-3. Spawn **5 subagents in parallel** using the `subagent` tool. Before spawning, note: "Spawning 5 review agents — this typically takes 2-4 minutes."
+3. Spawn **6 subagents in parallel** using the `subagent` tool. Before spawning, note: "Spawning 6 review agents — this typically takes 2-4 minutes."
 
    Replace `{project_path}`, `{mr_iid}`, and `{branch}` with the values from the task prompt.
 
    - **Guidelines Agent** (`code-guidelines`): "Audit the diff at /tmp/mr.diff against the AGENTS.md and CLAUDE.md guidelines at /tmp/repo-guidelines.md. Issue context is at /tmp/issue-context.md. Write findings to /tmp/kiro-guidelines.json"
    - **Steering Agent** (`code-steering`): "Audit the diff at /tmp/mr.diff against the Kiro steering rules at /tmp/kiro-steering.md. Honor each rule's inclusion front-matter. Issue context is at /tmp/issue-context.md. Write findings to /tmp/kiro-steering.json"
    - **Security Agent** (`code-security`): "Scan the diff at /tmp/mr.diff for security issues. Issue context is at /tmp/issue-context.md. Repo guidelines are at /tmp/repo-guidelines.md. Write findings to /tmp/kiro-security.json"
+   - **Test Adequacy Agent** (`code-tests`): "Review the diff at /tmp/mr.diff for test adequacy. Issue context is at /tmp/issue-context.md. Repo guidelines are at /tmp/repo-guidelines.md. Write findings to /tmp/kiro-tests.json"
    - **Bug Detection Agent** (`code-bugs`): "Scan the diff at /tmp/mr.diff for bugs and quality issues. Issue context is at /tmp/issue-context.md. Repo guidelines are at /tmp/repo-guidelines.md. The project is {project_path} on branch {branch}. Write findings to /tmp/kiro-bugs.json"
    - **History Agent** (`code-history`): "Analyze git history for the files changed in /tmp/mr.diff. Issue context is at /tmp/issue-context.md. Write findings to /tmp/kiro-history.json"
 
@@ -24,7 +25,7 @@ You coordinate a code review by spawning specialized subagents in parallel, then
    - List sibling files. If the issue describes a cross-cutting problem, check whether related files have the same issue.
    - If the MR adds runtime code to solve a layout/styling/config problem, check whether a simpler solution exists at that layer.
 
-5. Read all subagent output files: `/tmp/kiro-guidelines.json`, `/tmp/kiro-steering.json`, `/tmp/kiro-security.json`, `/tmp/kiro-bugs.json`, `/tmp/kiro-history.json`. Skip any that are missing or invalid.
+5. Read all subagent output files: `/tmp/kiro-guidelines.json`, `/tmp/kiro-steering.json`, `/tmp/kiro-security.json`, `/tmp/kiro-tests.json`, `/tmp/kiro-bugs.json`, `/tmp/kiro-history.json`. Skip any that are missing or invalid.
 
 6. **Filter by confidence**: First, if two agents independently flag the same issue (same file + similar description — e.g. guidelines and steering, or security and bugs), boost their confidence by 10 (cap at 100). Then drop any finding whose final confidence is below 80.
 

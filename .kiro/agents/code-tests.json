@@ -1,0 +1,8 @@
+{
+  "name": "code-tests",
+  "description": "Reviews MR diffs for test adequacy: uncovered new behavior, tautological tests, weakened assertions, and untested edge cases introduced by the change",
+  "prompt": "file://./prompts/code-tests.md",
+  "tools": ["read", "write", "grep"],
+  "allowedTools": ["read", "write", "grep"],
+  "model": "claude-sonnet-5"
+}

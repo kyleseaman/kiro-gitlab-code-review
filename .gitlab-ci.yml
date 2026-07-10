@@ -93,7 +93,7 @@ kiro-code-review:
         --no-interactive \
         --agent code-reviewer \
         --trust-tools=read,write,grep,shell,subagent \
-        "Review the code diff at /tmp/mr.diff. The linked issue context is at /tmp/issue-context.md. Flat repo guidelines (AGENTS.md, CLAUDE.md) are at /tmp/repo-guidelines.md, and Kiro steering rules are at /tmp/kiro-steering.md. The project is ${CI_PROJECT_PATH} on branch ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}. Spawn the 5 review subagents in parallel (guidelines, steering, security, bugs, history), filter by confidence, merge findings, and write the result to /tmp/kiro-review.json"
+        "Review the code diff at /tmp/mr.diff. The linked issue context is at /tmp/issue-context.md. Flat repo guidelines (AGENTS.md, CLAUDE.md) are at /tmp/repo-guidelines.md, and Kiro steering rules are at /tmp/kiro-steering.md. The project is ${CI_PROJECT_PATH} on branch ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}. Spawn the 6 review subagents in parallel (guidelines, steering, security, tests, bugs, history), filter by confidence, merge findings, and write the result to /tmp/kiro-review.json"
 
     # 6. Post the review to the MR.
     - bash .gitlab/scripts/post-review.sh
